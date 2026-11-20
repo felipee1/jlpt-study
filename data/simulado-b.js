@@ -224,7 +224,7 @@ window.EXAMS.push({
               exp: "Hoje foi às compras com amigos para comprar o DVD de um filme que viu há 3 meses. Vai assistir ao DVD (no futuro) com amigos e a irmã.",
               why: ["O filme foi visto há 3 meses, não hoje.", "Correta.", "A irmã só vai assistir depois; e o filme foi há 3 meses.", "Foi com amigos, não com a irmã."] },
             { src: "Oficial 2012 · nº28",
-              passage: "<b>(2)</b>\nわたしの へやには、テーブルが 一{ひと}つと いすが 二{ふた}つと 本{ほん}だなが 一{ひと}つ あります。本{ほん}が たくさん ありますから、もっと 大{おお}きい 本{ほん}だなが ほしいです。\n<img src='img/r12-q28.png' alt='Quatro desenhos de quarto' class='qimg'>",
+              passage: "<b>(2)</b>\nわたしの へやには、テーブルが 一{ひと}つと いすが 二{ふた}つと 本{ほん}だなが 一{ひと}つ あります。本{ほん}が たくさん ありますから、もっと 大{おお}きい 本{ほん}だなが ほしいです。\n<img src='media/img/R12-28.png' alt='Quatro desenhos de quarto' class='qimg'>",
               q: "今{いま}の へやは どれですか。", o: ["1", "2", "3", "4"], a: 2,
               tr: "Qual é o quarto atual?",
               exp: "1 mesa, 2 cadeiras, UMA estante, e tantos livros que ela quer uma estante maior → estante pequena com livros empilhados no chão.",

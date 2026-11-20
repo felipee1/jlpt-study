@@ -1,0 +1,21 @@
+{
+  "name": "Simulado JLPT N5",
+  "short_name": "JLPT N5",
+  "description": "Provas aleatórias do JLPT N5 com listening oficial, correção comentada, treino de vocabulário e dashboard de evolução.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e8eaee",
+  "theme_color": "#b8336a",
+  "icons": [
+    { "src": "media/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "media/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "media/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Vocabulário", "url": "./index.html#/vocab", "icons": [{ "src": "media/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Dashboard", "url": "./index.html#/dashboard", "icons": [{ "src": "media/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
