@@ -62,7 +62,7 @@
     del(k) { try { localStorage.removeItem(k); } catch (e) {} }
   };
   const history = () => store.get(LS_HIST, []);
-  const settings = () => Object.assign({ mode: "exam", shuffle: false, rate: 0.9, source: "mix", theme: "auto", furi: true }, store.get(LS_SET, {}));
+  const settings = () => Object.assign({ mode: "exam", shuffle: false, rate: 0.9, source: "mix", theme: "auto", furi: true, autoNext: true }, store.get(LS_SET, {}));
 
   /* ---------- banco de questões ---------- */
   const BANK = {}; // id -> unit
@@ -95,16 +95,16 @@
       if (absorbDigits(d, k, r)) return `<ruby>${d}${k}<rt>${r}</rt></ruby>`;
       return `${d}<ruby>${k}<rt>${r}</rt></ruby>`;
     });
-    s = s.replace(/__(.+?)__/g, "<u>$1</u>");
+    if (opt.star) { s = s.replace(/_{3,}/g, '<span class="blank">&nbsp;</span>').replace(/★/g, '<span class="star"></span>'); }
+    s = s.replace(/__([^_]+?)__/g, "<u>$1</u>");
     s = s.replace(/\[(\d{1,2})\]/g, '<span class="numbox">$1</span>');
     s = s.replace(/\[ \]/g, '<span class="numbox">&nbsp;&nbsp;</span>');
-    if (opt.star) { s = s.replace(/___/g, '<span class="blank">&nbsp;</span>').replace(/★/g, '<span class="star"></span>'); }
     return s;
   }
   function ttsText(text) {
     return String(text).replace(/<[^>]+>/g, "")
       .replace(FURI_RE, (m, d, k, r) => (absorbDigits(d, k, r) ? r : d + r))
-      .replace(/__/g, "").replace(/^([1-3１-３])[．.　]\s*/, "$1、");
+      .replace(/_{2,}/g, "").replace(/^([1-3１-３])[．.　]\s*/, "$1、");
   }
   /* renumera lacunas [22] do texto para os números reais da prova */
   function blankMap(items) { const m = {}; items.forEach((it) => { const r = /^\[(\d+)\]$/.exec(it.q.q); if (r) m[r[1]] = it.num; }); return m; }
@@ -284,7 +284,26 @@
   }
   window.addEventListener("hashchange", route);
   function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
-  function mount(node) { $app.innerHTML = ""; $app.appendChild(node); window.scrollTo(0, 0); }
+  const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let headRO = null;
+  function mount(node) {
+    $app.innerHTML = ""; $app.appendChild(node); window.scrollTo(0, 0);
+    const head = node.querySelector(".exam-head");
+    document.body.classList.toggle("exam-mode", !!head);
+    if (headRO) { headRO.disconnect(); headRO = null; }
+    if (head && window.ResizeObserver) { headRO = new ResizeObserver(() => document.documentElement.style.setProperty("--head-h", head.offsetHeight + "px")); headRO.observe(head); }
+  }
+  /* rola até um elemento descontando a barra fixa da prova (sem scrollIntoView, que no iOS arrasta containers) */
+  function scrollToEl(target) {
+    if (!target) return;
+    const head = document.querySelector(".exam-head");
+    const off = (head ? head.offsetHeight : 0) + 10;
+    const y = target.getBoundingClientRect().top + window.scrollY - off;
+    window.scrollTo({ top: Math.max(0, y), behavior: reduceMotion() ? "auto" : "smooth" });
+  }
+  /* teclado aberto: some a navegação inferior para não cobrir campos */
+  document.addEventListener("focusin", (e) => { if (e.target.matches("input[type=text], input:not([type]), textarea")) document.body.classList.add("kb-open"); });
+  document.addEventListener("focusout", () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches("input[type=text], input:not([type]), textarea")) document.body.classList.remove("kb-open"); }, 60));
 
   /* ================= HOME ================= */
   function viewHome() {
@@ -342,6 +361,8 @@
           <div class="seg"><label><input type="radio" name="theme" value="auto" ${(st.theme || "auto") === "auto" ? "checked" : ""}>Auto</label><label><input type="radio" name="theme" value="light" ${st.theme === "light" ? "checked" : ""}>Claro</label><label><input type="radio" name="theme" value="dark" ${st.theme === "dark" ? "checked" : ""}>Escuro</label></div></div>
         <div class="set"><div><b>Furigana</b><span class="d">Leitura em hiragana sobre os kanji em gramática, leitura e listening (o vocabulário nunca mostra, como na prova).</span></div>
           <div class="seg"><label><input type="radio" name="furi" value="1" ${st.furi !== false ? "checked" : ""}>Mostrar</label><label><input type="radio" name="furi" value="0" ${st.furi === false ? "checked" : ""}>Ocultar</label></div></div>
+        <div class="set"><div><b>Avançar sozinho</b><span class="d">Ao marcar uma alternativa, a tela desce para a próxima questão.</span></div>
+          <div class="seg"><label><input type="radio" name="autoNext" value="1" ${st.autoNext !== false ? "checked" : ""}>Sim</label><label><input type="radio" name="autoNext" value="0" ${st.autoNext === false ? "checked" : ""}>Não</label></div></div>
         <div class="set"><div><b>Embaralhar alternativas</b><span class="d">Útil ao refazer uma prova (vocabulário, gramática e leitura).</span></div>
           <div class="seg"><label><input type="radio" name="shuffle" value="0" ${!st.shuffle ? "checked" : ""}>Não</label><label><input type="radio" name="shuffle" value="1" ${st.shuffle ? "checked" : ""}>Sim</label></div></div>
         <div class="set"><div><b>Velocidade da voz</b><span class="d">Só no listening das questões originais (as oficiais usam o áudio real).</span><div id="voiceInfo" class="small muted" style="margin-top:6px"></div></div>
@@ -355,6 +376,7 @@
     const r = node.querySelector("#resume"); if (r) r.onclick = () => go("#/exam");
     const d = node.querySelector("#discard"); if (d) d.onclick = () => { if (confirm("Descartar a prova em andamento?")) { store.del(LS_CUR); route(); } };
     node.querySelectorAll("input[name=mode]").forEach((i) => i.onchange = () => saveSet({ mode: i.value }));
+    node.querySelectorAll("input[name=autoNext]").forEach((i) => i.onchange = () => saveSet({ autoNext: i.value === "1" }));
     node.querySelectorAll("input[name=shuffle]").forEach((i) => i.onchange = () => saveSet({ shuffle: i.value === "1" }));
     node.querySelectorAll("input[name=theme]").forEach((i) => i.onchange = () => { saveSet({ theme: i.value }); applyPrefs(); });
     node.querySelectorAll("input[name=furi]").forEach((i) => i.onchange = () => { saveSet({ furi: i.value === "1" }); applyPrefs(); });
@@ -474,7 +496,7 @@
     items.forEach((it) => {
       if (it.gi !== lastG) {
         lastG = it.gi;
-        book.appendChild(el(`<div class="mondai">${fmt(it.g.title)}<span class="pt">${esc(it.g.pt)}</span></div>`));
+        book.appendChild(el(`<div class="mondai" data-first="${it.id}">${fmt(it.g.title)}<span class="pt">${esc(it.g.pt)}</span></div>`));
         if (it.g.passage) book.appendChild(el(`<div class="passage">${fmt(renum(it.g.passage, blankMap(items.filter((x) => x.gi === it.gi))), { furi })}</div>`));
       }
       const order = optOrder(cur, it);
@@ -490,11 +512,28 @@
         cur.answers[it.id] = +b.dataset.o; saveCur(cur);
         qn.querySelectorAll(".opt").forEach((x) => { x.classList.toggle("sel", x === b); x.setAttribute("aria-pressed", x === b); });
         updProgress();
+        if (cur.settings.autoNext !== false) autoNext(it);
       });
       book.appendChild(qn);
     });
     const nav = node.querySelector("#qnav");
-    const jump = (id) => { document.getElementById("q-" + id).scrollIntoView({ behavior: "smooth", block: "start" }); };
+    const jump = (id) => scrollToEl(document.getElementById("q-" + id));
+    let advT = null;
+    function autoNext(it) {
+      clearTimeout(advT);
+      const i = items.indexOf(it), nx = items[i + 1];
+      advT = setTimeout(() => {
+        if (!nx) {
+          const left = items.filter((x) => cur.answers[x.id] === undefined);
+          if (left.length) { toast(`Fim da seção. ${left.length} em branco: indo para a ${left[0].num}.`); jump(left[0].id); }
+          else toast("Seção completa. Revise ou toque em Encerrar.");
+          return;
+        }
+        /* início de um novo bloco (もんだい/texto): mostra o enunciado e o texto junto */
+        const head = nx.gi !== it.gi ? book.querySelector(`.mondai[data-first="${nx.id}"]`) : null;
+        scrollToEl(head || document.getElementById("q-" + nx.id));
+      }, 320);
+    }
     items.forEach((it) => { const a = el(`<a href="#q-${it.id}" data-id="${it.id}" aria-label="Questão ${it.num}">${it.num}</a>`); a.onclick = (e) => { e.preventDefault(); jump(it.id); }; nav.appendChild(a); });
     /* folha de respostas completa (assinatura): cada linha = número + 4 bolhas */
     const sheet = node.querySelector("#answerSheet"), sheetBtn = node.querySelector("#sheetBtn");
@@ -509,7 +548,7 @@
     function toggleSheet(open) { sheet.hidden = !open; sheetBtn.setAttribute("aria-expanded", open); if (open) drawSheet(); }
     sheetBtn.onclick = () => toggleSheet(sheet.hidden);
     /* marca a questão visível na faixa de sincronismo */
-    const io = new IntersectionObserver((ents) => ents.forEach((en) => { if (en.isIntersecting) { const id = en.target.id.slice(2); nav.querySelectorAll("a").forEach((a) => a.classList.toggle("cur", a.dataset.id === id)); const a = nav.querySelector(`a[data-id="${id}"]`); if (a) a.scrollIntoView({ block: "nearest", inline: "center" }); } }), { rootMargin: "-45% 0px -50% 0px" });
+    const io = new IntersectionObserver((ents) => ents.forEach((en) => { if (en.isIntersecting) { const id = en.target.id.slice(2); nav.querySelectorAll("a").forEach((a) => a.classList.toggle("cur", a.dataset.id === id)); const a = nav.querySelector(`a[data-id="${id}"]`); if (a) nav.scrollTo({ left: a.offsetLeft - nav.clientWidth / 2 + a.offsetWidth / 2, behavior: "auto" }); } }), { rootMargin: "-45% 0px -50% 0px" });
     function updProgress() {
       const done = items.filter((i) => cur.answers[i.id] !== undefined).length;
       node.querySelector("#prog").style.width = (done / items.length) * 100 + "%";

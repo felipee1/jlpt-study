@@ -133,7 +133,7 @@
     });
     node.querySelector("#roma").onchange = (e) => { st.roma = e.target.checked; set(LS_VSET, st); };
 
-    let cur = null;
+    let cur = null, started = false;
     function next() {
       cur = pick(st.filter, stats, recent);
       if (!cur) {
@@ -144,17 +144,29 @@
       card.innerHTML = `
         <div class="vword-box"><div class="vword" lang="ja">${esc(cur.w)}</div></div>
         <form id="vform" class="vform" autocomplete="off">
-          <label class="vfield"><span>Significado (português)</span><input id="vm" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next"></label>
-          <label class="vfield"><span>Leitura (hiragana)</span><input id="vr" type="text" lang="ja" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></label>
+          <label class="vfield"><span>Significado (português)</span><input id="vm" type="text" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="next"></label>
+          <label class="vfield"><span>Leitura (hiragana)</span><input id="vr" type="text" lang="ja" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="done"></label>
           <div class="vactions"><button type="button" class="btn ghost" id="vskip">Não sei</button><button class="btn primary" id="vcheck">Verificar</button></div>
         </form>
         <div id="vres" class="vres" aria-live="polite"></div>`;
       const vm = card.querySelector("#vm"), vr = card.querySelector("#vr");
-      vr.addEventListener("input", () => { if (st.roma && /[a-zA-Z\-]/.test(vr.value)) { const pos = vr.value.length; vr.value = romaToHira(vr.value, false); } });
+      /* converte romaji só fora de composição (teclado japonês/preditivo do iOS) e só com o cursor no fim */
+      const conv = () => {
+        if (!st.roma || !/[a-zA-Z\-]/.test(vr.value)) return;
+        if (vr.selectionStart !== vr.value.length) return;
+        const nv = romaToHira(vr.value, false);
+        if (nv !== vr.value) { vr.value = nv; vr.setSelectionRange(nv.length, nv.length); }
+      };
+      vr.addEventListener("input", (e) => { if (!e.isComposing) conv(); });
+      vr.addEventListener("compositionend", () => setTimeout(conv, 0));
       vm.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); vr.focus(); } });
       card.querySelector("#vform").onsubmit = (e) => { e.preventDefault(); check(false); };
       card.querySelector("#vskip").onclick = () => check(true);
-      setTimeout(() => vm.focus({ preventScroll: true }), 50);
+      /* traz o cartão para o topo antes de abrir o teclado (evita pulo de layout no iPhone) */
+      const tbh = (document.querySelector(".topbar") || {}).offsetHeight || 0; const top = card.getBoundingClientRect().top + window.scrollY - tbh - 8;
+      if (Math.abs(window.scrollY - top) > 4) window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+      if (!window.matchMedia("(hover: none)").matches || started) setTimeout(() => vm.focus({ preventScroll: true }), 50);
+      started = true;
       upStats();
     }
     function record(ok) {
@@ -192,7 +204,10 @@
         acc.remove(); res.querySelector(".verdict").textContent = okR ? "Correto (aceito)" : "Significado aceito; a leitura ainda está errada";
         res.querySelector(".vrow").classList.replace("bad", "ok"); upStats();
       };
-      const nb = res.querySelector("#vnext"); nb.onclick = next; nb.focus({ preventScroll: true });
+      const nb = res.querySelector("#vnext"); nb.onclick = next;
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      /* depois que o teclado fecha, mostra o veredito logo abaixo da palavra */
+      setTimeout(() => { const vd = res.querySelector(".verdict") || res; const tb = document.querySelector(".topbar"); const y = vd.getBoundingClientRect().top + window.scrollY - (tb ? tb.offsetHeight : 0) - 12; window.scrollTo({ top: Math.max(0, y), behavior: "smooth" }); }, 280);
       upStats();
       res.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
