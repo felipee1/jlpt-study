@@ -449,14 +449,20 @@
   function quitExam() { if (confirm("Abandonar a prova? As respostas não serão salvas.")) { store.del(LS_CUR); go("#/"); } }
 
   function startTimer(cur, sec, onTick, onEnd) {
-    let last = Date.now();
-    timerId = setInterval(() => {
-      const now = Date.now(); const dt = Math.round((now - last) / 1000); if (dt < 1) return; last = now;
-      cur.remaining[sec.id] = Math.max(0, cur.remaining[sec.id] - dt);
-      cur.timeUsed[sec.id] = sec.minutes * 60 - cur.remaining[sec.id];
-      saveCur(cur); onTick(cur.remaining[sec.id]);
-      if (cur.remaining[sec.id] <= 0) { clearInterval(timerId); timerId = null; onEnd(); }
-    }, 250);
+    if (timerId) clearInterval(timerId);              /* nunca dois relógios ao mesmo tempo */
+    /* conta pelo relógio real: prazo final fixo, restante = prazo − agora (não acumula erro nem acelera) */
+    const endAt = Date.now() + cur.remaining[sec.id] * 1000;
+    let shown = cur.remaining[sec.id];
+    const step = () => {
+      const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+      if (left === shown && left > 0) return;
+      shown = left;
+      cur.remaining[sec.id] = left;
+      cur.timeUsed[sec.id] = sec.minutes * 60 - left;
+      saveCur(cur); onTick(left);
+      if (left <= 0) { clearInterval(timerId); timerId = null; onEnd(); }
+    };
+    timerId = setInterval(step, 250);
   }
   function examHeader(cur, ex, sec, total, opts = {}) {
     return `<div class="exam-head"><div class="row">

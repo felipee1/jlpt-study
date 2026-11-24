@@ -1,6 +1,6 @@
 /* Service worker — gerado por build-sw.py (não edite sw.js à mão; edite sw.template.js).
    Funciona offline: arquivos do site em cache na instalação; áudios baixados em segundo plano. */
-const VERSION = "ef4458a9b2";
+const VERSION = "7bc0d583e2";
 const CORE = [
  "./",
  "./css/style.css",
